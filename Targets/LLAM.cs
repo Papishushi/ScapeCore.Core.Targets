@@ -52,24 +52,17 @@ namespace ScapeCore.Core.Targets
         public GraphicsDeviceManager Graphics { get => _graphics; }
         public SpriteBatch? SpriteBatch { get => _spriteBatch; }
         public static WeakReference<LLAM?> Instance { get; private set; }
-        private GameTime _time;
-        public GameTime Time { get => _time; }
+        private GameTime? _time;
+        public GameTime? Time { get => _time; }
 
         public event UpdateBatchEventHandler? OnUpdate;
         public event StartBatchEventHandler? OnStart;
         public event LoadBatchEventHandler? OnLoad;
         public event RenderBatchEventHandler? OnRender;
 
-        private readonly static Type[] _managers =
-        {
-            //typeof(SerializationManager),
-            //typeof(ResourceManager),
-            //typeof(SceneManager)
-        };
-
         static LLAM() => Instance ??= new(null);
 
-        public LLAM()
+        public LLAM(params Type[] managers)
         {
             Log.Logger = new LoggerConfiguration().MinimumLevel.Debug().WriteTo.Async(wt => wt.Console(theme: AnsiConsoleTheme.Code)).CreateLogger();
             Log.Information("Constructing Game...");
@@ -88,7 +81,7 @@ namespace ScapeCore.Core.Targets
 
             try
             {
-                foreach (var manager in _managers)
+                foreach (var manager in managers)
                 {
                     Log.Debug("Initializing {ty} ...", manager);
                     RuntimeHelpers.RunClassConstructor(manager.TypeHandle);
