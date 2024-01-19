@@ -33,11 +33,7 @@
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
-using ProtoBuf;
 using ScapeCore.Core.Batching.Events;
-using ScapeCore.Core.Batching.Resources;
-using ScapeCore.Core.SceneManagement;
-using ScapeCore.Core.Serialization;
 using Serilog;
 using Serilog.Sinks.SystemConsole.Themes;
 using System;
@@ -66,9 +62,9 @@ namespace ScapeCore.Core.Targets
 
         private readonly static Type[] _managers =
         {
-            typeof(SerializationManager),
-            typeof(ResourceManager),
-            typeof(SceneManager)
+            //typeof(SerializationManager),
+            //typeof(ResourceManager),
+            //typeof(SceneManager)
         };
 
         static LLAM() => Instance ??= new(null);
@@ -167,11 +163,7 @@ namespace ScapeCore.Core.Targets
         {
             // At application shutdown (results in monitors getting StopMonitoring calls)
             Log.CloseAndFlush();
-            SceneManager.Clear();
             base.EndRun();
         }
-
-        [ProtoAfterDeserialization]
-        private void OnAfterDeserialize() => Instance = new(this);
     }
 }
