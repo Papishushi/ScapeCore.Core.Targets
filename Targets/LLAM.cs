@@ -55,10 +55,10 @@ namespace ScapeCore.Core.Targets
         private GameTime _time;
         public GameTime Time { get => _time; }
 
-        internal event UpdateBatchEventHandler? OnUpdate;
-        internal event StartBatchEventHandler? OnStart;
-        internal event LoadBatchEventHandler? OnLoad;
-        internal event RenderBatchEventHandler? OnRender;
+        public event UpdateBatchEventHandler? OnUpdate;
+        public event StartBatchEventHandler? OnStart;
+        public event LoadBatchEventHandler? OnLoad;
+        public event RenderBatchEventHandler? OnRender;
 
         private readonly static Type[] _managers =
         {
