@@ -46,8 +46,10 @@ namespace ScapeCore.Core.Targets
     public class LLAM : Game
     {
         private long _si, _ui, _ri;
-        private GraphicsDeviceManager _graphics;
+        private GraphicsDeviceManager? _graphics;
         private SpriteBatch? _spriteBatch;
+
+        private readonly Type[] _managers;
 
         public GraphicsDeviceManager Graphics { get => _graphics; }
         public SpriteBatch? SpriteBatch { get => _spriteBatch; }
@@ -63,6 +65,23 @@ namespace ScapeCore.Core.Targets
         static LLAM() => Instance ??= new(null);
 
         public LLAM(params Type[] managers)
+        {
+            ConstructorLogic(managers);
+            _managers = managers;
+        }
+
+        public void Reset()
+        {
+            Instance.SetTarget(null);
+            _graphics = null;
+            Content.RootDirectory = string.Empty;
+            IsMouseVisible = default;
+            IsFixedTimeStep = default;
+
+            ConstructorLogic(_managers);
+        }
+
+        private void ConstructorLogic(params Type[] managers)
         {
             Log.Logger = new LoggerConfiguration().MinimumLevel.Debug().WriteTo.Async(wt => wt.Console(theme: AnsiConsoleTheme.Code)).CreateLogger();
             Log.Information("Constructing Game...");
@@ -83,7 +102,7 @@ namespace ScapeCore.Core.Targets
             {
                 foreach (var manager in managers)
                 {
-                    Log.Debug("Initializing {ty} ...", manager);
+                    Log.Debug("Initializing {manager} ...", manager);
                     RuntimeHelpers.RunClassConstructor(manager.TypeHandle);
                 }
 
@@ -122,11 +141,9 @@ namespace ScapeCore.Core.Targets
 
         protected override void Update(GameTime gameTime)
         {
-            //Debug.WriteLine("Update...");
             if (GamePad.GetState(PlayerIndex.One).Buttons.Back == ButtonState.Pressed || Keyboard.GetState().IsKeyDown(Keys.Escape))
                 Exit();
             _time = gameTime;
-            // TODO: Add your update logic here
             OnStart?.Invoke(this, new(string.Empty));
             Log.Verbose("{{{@source}}}\t{@args}", GetHashCode(), $"Start cycle number\t{_si++}\t|\tPatch size\t{OnStart?.GetInvocationList().Length ?? 0}");
             OnStart = null;
