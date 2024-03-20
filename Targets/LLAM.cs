@@ -34,10 +34,11 @@ using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 using ScapeCore.Core.Batching.Events;
-using Serilog;
-using Serilog.Sinks.SystemConsole.Themes;
 using System;
 using System.Runtime.CompilerServices;
+
+using static ScapeCore.Traceability.Debug.Debugger;
+using static ScapeCore.Traceability.Logging.LoggingColor;
 
 namespace ScapeCore.Core.Targets
 {
@@ -83,37 +84,36 @@ namespace ScapeCore.Core.Targets
 
         private void ConstructorLogic(params Type[] managers)
         {
-            Log.Logger = new LoggerConfiguration().MinimumLevel.Debug().WriteTo.Async(wt => wt.Console(theme: AnsiConsoleTheme.Code)).CreateLogger();
-            Log.Information("Constructing Game...");
+            SCLog.Log(INFORMATION, "Constructing Game...");
 
-            Log.Debug("Setting singleton pattern.");
+            SCLog.Log(DEBUG, "Setting singleton pattern.");
             if (Instance.TryGetTarget(out var target))
             {
                 var ex = new InvalidOperationException("There is already a valid LLAM instance set up.");
-                Log.Error(ex.Message);
+                SCLog.Log(ERROR, ex.Message);
                 throw ex;
             }
             else
                 Instance.SetTarget(this);
 
-            Log.Debug("Singleton pattern was set.");
+            SCLog.Log(DEBUG, "Singleton pattern was set.");
 
             try
             {
                 foreach (var manager in managers)
                 {
-                    Log.Debug("Initializing {manager} ...", manager);
+                    SCLog.Log(DEBUG, $"Initializing {Yellow}{manager}{Default} ...");
                     RuntimeHelpers.RunClassConstructor(manager.TypeHandle);
                 }
 
             }
             catch (Exception ex)
             {
-                Log.Error("Manager constructor errror:{ex}\n{exin}", ex.Message, ex.InnerException?.Message);
+                SCLog.Log(ERROR, $"Manager constructor error:{ex.Message}\n{ ex.InnerException?.Message}");
                 throw;
             }
 
-            Log.Debug("Managers were correctly initialized.");
+            SCLog.Log(DEBUG, "Managers were correctly initialized.");
 
             _graphics = new(this);
             Content.RootDirectory = "Content";
@@ -123,8 +123,8 @@ namespace ScapeCore.Core.Targets
 
         protected override void Initialize()
         {
-            Log.Information("Initializing...");
-            static void successLoad(object a, StartBatchEventArgs b) => Log.Information("Load Sucess!");
+            SCLog.Log(INFORMATION, "Initializing...");
+            static void successLoad(object a, StartBatchEventArgs b) => SCLog.Log(INFORMATION, "Load Success!");
             OnStart += successLoad;
 
             base.Initialize();
@@ -132,7 +132,7 @@ namespace ScapeCore.Core.Targets
 
         protected override void LoadContent()
         {
-            Log.Information("Loading Content...");
+            SCLog.Log(INFORMATION, "Loading Content...");
             _spriteBatch = new(GraphicsDevice);
             var args = new LoadBatchEventArgs($"Load process | Patch size {OnLoad?.GetInvocationList().Length ?? 0}");
             OnLoad?.Invoke(this, args);
@@ -145,10 +145,10 @@ namespace ScapeCore.Core.Targets
                 Exit();
             _time = gameTime;
             OnStart?.Invoke(this, new(string.Empty));
-            Log.Verbose("{{{@source}}}\t{@args}", GetHashCode(), $"Start cycle number\t{_si++}\t|\tPatch size\t{OnStart?.GetInvocationList().Length ?? 0}");
+            SCLog.Log(VERBOSE, $"{{{@GetHashCode()}}}\tStart cycle number\t{_si++}\t|\tPatch size\t{OnStart?.GetInvocationList().Length ?? 0}");
             OnStart = null;
             OnUpdate?.Invoke(this, new(gameTime, string.Empty));
-            Log.Verbose("{{{@source}}}\t{@args}", GetHashCode(), $"Update cycle number\t{_ui++}\t|\tPatch size\t{OnUpdate?.GetInvocationList().Length ?? 0}");
+            SCLog.Log(VERBOSE, $"{{{@GetHashCode()}}}\tUpdate cycle number\t{_ui++}\t|\tPatch size\t{OnUpdate?.GetInvocationList().Length ?? 0}");
             base.Update(gameTime);
         }
 
@@ -163,7 +163,7 @@ namespace ScapeCore.Core.Targets
             //Render Patches
             _spriteBatch!.Begin();
             OnRender?.Invoke(this, new(gameTime, string.Empty));
-            Log.Verbose("{{{@source}}}\t{@args}", GetHashCode(), $"Render cycle number\t{_ri++}\t|\tPatch size\t{OnRender?.GetInvocationList().Length ?? 0}");
+            SCLog.Log(VERBOSE, $"{{{@GetHashCode()}}}\tRender cycle number\t{_ri++}\t|\tPatch size\t{OnRender?.GetInvocationList().Length ?? 0}");
             _spriteBatch!.End();
 
             base.Draw(gameTime);
@@ -171,8 +171,7 @@ namespace ScapeCore.Core.Targets
 
         protected override void EndRun()
         {
-            // At application shutdown (results in monitors getting StopMonitoring calls)
-            Log.CloseAndFlush();
+            DisposeAsync().AsTask().Wait();
             base.EndRun();
         }
     }
