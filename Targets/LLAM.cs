@@ -113,7 +113,6 @@ namespace ScapeCore.Core.Targets
             SCLog.Log(INFORMATION, "Initializing...");
             static void successLoad(object a, StartBatchEventArgs b) => SCLog.Log(INFORMATION, "Load Success!");
             OnStart += successLoad;
-
             base.Initialize();
         }
 
@@ -158,6 +157,7 @@ namespace ScapeCore.Core.Targets
 
         protected override void EndRun()
         {
+            Unload(managers: [.. _managers]);
             Debug.Debugger.Default?.DisposeAsync().AsTask().Wait();
             base.EndRun();
         }
@@ -173,7 +173,7 @@ namespace ScapeCore.Core.Targets
             }
             catch (Exception ex)
             {
-                SCLog.Log(ERROR, $"Manager load error:{ex.Message}\n{ex.InnerException?.Message}");
+                SCLog.Log(ERROR, $"{Red}Manager load error: {ex.Message}\n{ex.InnerException?.Message}{Traceability.Logging.LoggingColor.Default}");
                 throw;
             }
 
@@ -185,13 +185,20 @@ namespace ScapeCore.Core.Targets
             try
             {
                 if (_managers.Remove(manager))
+                {
                     SCLog.Log(DEBUG, $"Unloading {Yellow}{manager}{Traceability.Logging.LoggingColor.Default} ...");
+                    if (!manager.ExtractDependencies())
+                    {
+                        SCLog.Log(ERROR, $"{Red}Manager unload error: Failed to extract dependencies for manager {manager}{Traceability.Logging.LoggingColor.Default} ");
+                        return;
+                    }    
+                }
                 else
                     SCLog.Log(DEBUG, $"{Red}{manager} unload failed ...{Traceability.Logging.LoggingColor.Default}");
             }
             catch (Exception ex)
             {
-                SCLog.Log(ERROR, $"Manager unload error:{ex.Message}\n{ex.InnerException?.Message}");
+                SCLog.Log(ERROR, $"{Red}Manager unload error: {ex.Message}\n{ex.InnerException?.Message}{Traceability.Logging.LoggingColor.Default}");
                 throw;
             }
 
