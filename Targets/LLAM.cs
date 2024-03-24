@@ -34,29 +34,33 @@ using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 using ScapeCore.Core.Batching.Events;
+using ScapeCore.Core.Tools;
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Runtime.CompilerServices;
 
-using static ScapeCore.Traceability.Debug.Debugger;
+using static ScapeCore.Core.Debug.Debugger;
 using static ScapeCore.Traceability.Logging.LoggingColor;
 
 namespace ScapeCore.Core.Targets
 {
 
     //Low Level Automation Module
-    public class LLAM : Game
+    public class LLAM : Game, IScapeCoreHost
     {
         private long _si, _ui, _ri;
         private GraphicsDeviceManager? _graphics;
         private SpriteBatch? _spriteBatch;
-
-        private readonly Type[] _managers;
 
         public GraphicsDeviceManager Graphics { get => _graphics; }
         public SpriteBatch? SpriteBatch { get => _spriteBatch; }
         public static WeakReference<LLAM?> Instance { get; private set; }
         private GameTime? _time;
         public GameTime? Time { get => _time; }
+
+        private readonly HashSet<IScapeCoreManager?> _managers = [];
+        List<IScapeCoreManager?> IScapeCoreHost.Managers { get => [.. _managers]; init => _managers = [.. value]; }
 
         public event UpdateBatchEventHandler? OnUpdate;
         public event StartBatchEventHandler? OnStart;
@@ -65,10 +69,9 @@ namespace ScapeCore.Core.Targets
 
         static LLAM() => Instance ??= new(null);
 
-        public LLAM(params Type[] managers)
+        public LLAM()
         {
-            ConstructorLogic(managers);
-            _managers = managers;
+            ConstructorLogic();
         }
 
         public void Reset()
@@ -79,10 +82,11 @@ namespace ScapeCore.Core.Targets
             IsMouseVisible = default;
             IsFixedTimeStep = default;
 
-            ConstructorLogic(_managers);
+            ConstructorLogic();
+            _managers.Clear();
         }
 
-        private void ConstructorLogic(params Type[] managers)
+        private void ConstructorLogic()
         {
             SCLog.Log(INFORMATION, "Constructing Game...");
 
@@ -98,23 +102,6 @@ namespace ScapeCore.Core.Targets
 
             SCLog.Log(DEBUG, "Singleton pattern was set.");
 
-            try
-            {
-                foreach (var manager in managers)
-                {
-                    SCLog.Log(DEBUG, $"Initializing {Yellow}{manager}{Default} ...");
-                    RuntimeHelpers.RunClassConstructor(manager.TypeHandle);
-                }
-
-            }
-            catch (Exception ex)
-            {
-                SCLog.Log(ERROR, $"Manager constructor error:{ex.Message}\n{ ex.InnerException?.Message}");
-                throw;
-            }
-
-            SCLog.Log(DEBUG, "Managers were correctly initialized.");
-
             _graphics = new(this);
             Content.RootDirectory = "Content";
             IsMouseVisible = true;
@@ -126,7 +113,6 @@ namespace ScapeCore.Core.Targets
             SCLog.Log(INFORMATION, "Initializing...");
             static void successLoad(object a, StartBatchEventArgs b) => SCLog.Log(INFORMATION, "Load Success!");
             OnStart += successLoad;
-
             base.Initialize();
         }
 
@@ -171,8 +157,64 @@ namespace ScapeCore.Core.Targets
 
         protected override void EndRun()
         {
-            DisposeAsync().AsTask().Wait();
+            Unload(managers: [.. _managers]);
+            Debug.Debugger.Default?.DisposeAsync().AsTask().Wait();
             base.EndRun();
+        }
+
+        public void Load(IScapeCoreManager manager)
+        {
+            try
+            {
+                if (_managers.Add(manager))
+                    SCLog.Log(DEBUG, $"Loading {Yellow}{manager}{Traceability.Logging.LoggingColor.Default} ...");
+                else
+                    SCLog.Log(DEBUG, $"{Red}{manager} load failed ...{Traceability.Logging.LoggingColor.Default}");
+            }
+            catch (Exception ex)
+            {
+                SCLog.Log(ERROR, $"{Red}Manager load error: {ex.Message}\n{ex.InnerException?.Message}{Traceability.Logging.LoggingColor.Default}");
+                throw;
+            }
+
+            SCLog.Log(DEBUG, "Manager was correctly loaded.");
+        }
+
+        public void Unload(IScapeCoreManager manager)
+        {
+            try
+            {
+                if (_managers.Remove(manager))
+                {
+                    SCLog.Log(DEBUG, $"Unloading {Yellow}{manager}{Traceability.Logging.LoggingColor.Default} ...");
+                    if (!manager.ExtractDependencies())
+                    {
+                        SCLog.Log(ERROR, $"{Red}Manager unload error: Failed to extract dependencies for manager {manager}{Traceability.Logging.LoggingColor.Default} ");
+                        return;
+                    }    
+                }
+                else
+                    SCLog.Log(DEBUG, $"{Red}{manager} unload failed ...{Traceability.Logging.LoggingColor.Default}");
+            }
+            catch (Exception ex)
+            {
+                SCLog.Log(ERROR, $"{Red}Manager unload error: {ex.Message}\n{ex.InnerException?.Message}{Traceability.Logging.LoggingColor.Default}");
+                throw;
+            }
+
+            SCLog.Log(DEBUG, "Manager was correctly unloaded.");
+        }
+
+        public void Load(params IScapeCoreManager[] managers)
+        {
+            foreach (var manager in managers)
+                Load(manager);
+        }
+
+        public void Unload(params IScapeCoreManager[] managers)
+        {
+            foreach (var manager in managers)
+                Unload(manager);
         }
     }
 }
