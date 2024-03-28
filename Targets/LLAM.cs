@@ -162,6 +162,63 @@ namespace ScapeCore.Core.Targets
             base.EndRun();
         }
 
+        public void Load(Func<IScapeCoreManager> managerInvokation)
+        {
+            var manager = managerInvokation();
+            try
+            {
+                if (_managers.Add(manager))
+                    SCLog.Log(DEBUG, $"Loading {Yellow}{manager}{Traceability.Logging.LoggingColor.Default} ...");
+                else
+                    SCLog.Log(DEBUG, $"{Red}{manager} load failed ...{Traceability.Logging.LoggingColor.Default}");
+            }
+            catch (Exception ex)
+            {
+                SCLog.Log(ERROR, $"{Red}Manager load error: {ex.Message}\n{ex.InnerException?.Message}{Traceability.Logging.LoggingColor.Default}");
+                throw;
+            }
+
+            SCLog.Log(DEBUG, "Manager was correctly loaded.");
+        }
+
+        public void Unload(Func<IScapeCoreManager> managerInvokation)
+        {
+            var manager = managerInvokation();
+            try
+            {
+                if (_managers.Remove(manager))
+                {
+                    SCLog.Log(DEBUG, $"Unloading {Yellow}{manager}{Traceability.Logging.LoggingColor.Default} ...");
+                    if (!manager.ExtractDependencies())
+                    {
+                        SCLog.Log(ERROR, $"{Red}Manager unload error: Failed to extract dependencies for manager {manager}{Traceability.Logging.LoggingColor.Default} ");
+                        return;
+                    }    
+                }
+                else
+                    SCLog.Log(DEBUG, $"{Red}{manager} unload failed ...{Traceability.Logging.LoggingColor.Default}");
+            }
+            catch (Exception ex)
+            {
+                SCLog.Log(ERROR, $"{Red}Manager unload error: {ex.Message}\n{ex.InnerException?.Message}{Traceability.Logging.LoggingColor.Default}");
+                throw;
+            }
+
+            SCLog.Log(DEBUG, "Manager was correctly unloaded.");
+        }
+
+        public void Load(params Func<IScapeCoreManager>[] managers)
+        {
+            foreach (var manager in managers)
+                Load(manager);
+        }
+
+        public void Unload(params Func<IScapeCoreManager>[] managers)
+        {
+            foreach (var manager in managers)
+                Unload(manager);
+        }
+
         public void Load(IScapeCoreManager manager)
         {
             try
@@ -191,7 +248,7 @@ namespace ScapeCore.Core.Targets
                     {
                         SCLog.Log(ERROR, $"{Red}Manager unload error: Failed to extract dependencies for manager {manager}{Traceability.Logging.LoggingColor.Default} ");
                         return;
-                    }    
+                    }
                 }
                 else
                     SCLog.Log(DEBUG, $"{Red}{manager} unload failed ...{Traceability.Logging.LoggingColor.Default}");
@@ -205,16 +262,22 @@ namespace ScapeCore.Core.Targets
             SCLog.Log(DEBUG, "Manager was correctly unloaded.");
         }
 
-        public void Load(params IScapeCoreManager[] managers)
+        public LLAM Load(params IScapeCoreManager[] managers)
         {
             foreach (var manager in managers)
                 Load(manager);
+            return this;
         }
 
-        public void Unload(params IScapeCoreManager[] managers)
+        public LLAM Unload(params IScapeCoreManager[] managers)
         {
             foreach (var manager in managers)
                 Unload(manager);
+            return this;
         }
+
+        void IScapeCoreHost.Load(params IScapeCoreManager[] managers) => Load(managers);
+
+        void IScapeCoreHost.Unload(params IScapeCoreManager[] managers) => Unload(managers);
     }
 }
